@@ -1,0 +1,58 @@
+
+
+============================================Hystrix=============================================================
+hystrix.command.default.circuitBreaker.requestVolumeThreshold=10
+hystrix.command.default.metrics.rollingStats.timeInMilliseconds=10000
+hystrix.command.default.circuitBreaker.errorThresholdPercentage=50
+hystrix.command.default.circuitBreaker.sleepWindowInMilliseconds=10000
+
+=================================================================================================================
+
+@HystrixCommand(fallbackMethod="getCustomerProfileFallback")
+@GetMapping(value = "/customers/{phoneNo}")  
+public CustomerDTO getCustomerProfile(@PathVariable Long phoneNo) {
+		CustomerDTO custDTO=custService.getCustomerProfile(phoneNo);
+PlanDTO planDTO=template.getForObject("http://PLANMS"+"/plans/"+custDTO.getCurrentPlan().getPlanId(), PlanDTO.class);
+		custDTO.setCurrentPlan(planDTO);
+List<Long> friends=template.getForObject("http://FRIENDFAMILYMS"+"/customers/"+phoneNo+"/friends", List.class);
+		custDTO.setFriendAndFamily(friends);
+		return custDTO;
+}
+
+
+==================================================Feign============================================================
+
+@FeignClient("PlanMS")
+public interface CustPlanFeign {
+	@RequestMapping(value="/plans/{planId}")
+	PlanDTO getSpecificPlan(@PathVariable("planId") int planId);
+	
+}
+
+@Autowired
+    CustPlanFeign planFeign;
+ 
+planFeign.getSpecificPlan(planId);
+
+
+==========================================zipkin===============================================
+microservice:
+spring.zipkin.base-url=http://localhost:9411/
+
+<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-zipkin</artifactId>
+</dependency>
+
+actual:
+@EnableZipkinServer
+
+<dependency>
+			<groupId>io.zipkin.java</groupId>
+			<artifactId>zipkin-autoconfigure-ui</artifactId>
+			<scope>runtime</scope>
+</dependency>
+<dependency>
+			<groupId>io.zipkin.java</groupId>
+			<artifactId>zipkin-server</artifactId>
+</dependency>
